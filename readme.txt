@@ -1,0 +1,113 @@
+=== Cosmo Multilingual Kit for Polylang ===
+Contributors: bakhods
+Tags: polylang, multilingual, translation, slugs, acf
+Requires at least: 6.4
+Tested up to: 7.1
+Requires PHP: 7.4
+Stable tag: 1.0.0
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
+Fills the gaps of Polylang free: one slug in every language, translated URL bases, per-language ACF options, duplicate-as-translation and more.
+
+== Description ==
+
+Polylang free covers the basics. Building a real multilingual theme on it, you quickly run into things that only Polylang PRO or WPML handle. This plugin adds them, configured from your theme in code so the setup travels with the theme rather than the database.
+
+* **The same slug in every language.** `/about-us/` and `/es/about-us/` instead of `/es/about-us-2/`, for posts, pages, custom post types and terms. Requests resolve to the post or term of the requested language.
+* **Translated URL bases.** `/success-stories/` in English, `/es/casos-de-exito/` in Spanish, for post types, taxonomies and the blog base.
+* **Per-language ACF / SCF options pages.** Language tabs above the options page, a "copy from the default language" button, and a fallback to the default language for empty values. `get_field( 'name', 'options' )` keeps working.
+* **Duplicate as translation.** A "Duplicate → Español" row action copies blocks, custom fields, featured image, template and terms, and links the posts as translations.
+* **Default category in every language.** Repairs the default category translation Polylang leaves without a language when languages are created programmatically, and creates missing ones.
+* **Image alt per language**, with a fallback to the library alt, for images output with `wp_get_attachment_image()`. The block editor's Image block saves its alt into the post content and is translated with the post.
+* **Theme strings** in Languages → Translations.
+* **Author profile fields per language**, including the biography fallback Polylang free lacks.
+* **Language switcher data** that hides untranslated, hidden or not-yet-translated copies, plus hreflang `x-default`.
+
+Requires Polylang 3.7 or later.
+
+Cosmo Multilingual Kit for Polylang is an independent, unofficial plugin. "Polylang" is a trademark of WP SYNTEX; this plugin is not affiliated with or endorsed by WP SYNTEX, and the name refers to that plugin solely to describe what this one works with.
+
+== Configuration ==
+
+Everything is configured through a single filter, typically in the theme's `functions.php`:
+
+`
+add_filter( 'cosmo/multilingual_kit/config', function ( $config ) {
+	return array_merge( $config, [
+		'post_types'       => [ 'post', 'page', 'story' ],
+		'taxonomies'       => [ 'category', 'post_tag', 'story_category' ],
+		'bases'            => [ 'blog', 'story', 'story_category' ],
+		'base_map'         => [ 'story' => [ 'es' => 'casos-de-exito' ] ],
+		'options_pages'    => [ 'site-options' ],
+		'strings'          => [ 'read_more' => 'Read more' ],
+		'strings_group'    => 'My theme',
+		'user_fields'      => [ 'position' => 'Position' ],
+		'pending_meta'     => 'translation_pending',
+		'hidden_languages' => [ 'uz' ],
+	] );
+} );
+`
+
+* `post_types`, `taxonomies` — made translatable in addition to Polylang's settings.
+* `bases` — sections whose URL base can be translated: post type names, taxonomy names, or `blog`. A default can be given explicitly (`'blog' => 'news'`), otherwise the registered rewrite slug is used. Every URL of the section follows the translated base: nested terms, feeds, paging, archives.
+* `base_map` — translated bases per language. Flush permalinks after changing it, and let your SEO plugin rebuild its URL cache.
+* `options_pages` — ACF options page slugs stored per language. Storage goes by the page's post id, so every options page that keeps the default `options` post id becomes per-language too; give pages that should stay shared their own `post_id`. A field left empty in a language shows the default language value, except for cells inside repeaters and flexible content.
+* `strings`, `strings_group` — template strings registered with Polylang.
+* `user_fields` — profile fields translated per language.
+* `pending_meta` — meta key set on duplicated copies; while set, the language switcher hides that language.
+* `hidden_languages` — languages never offered by the switcher, e.g. while their content is being prepared.
+* `x_default` — add hreflang `x-default` (default `true`).
+* `modules` — switch modules off: `[ 'media' => false ]`. Keys: `slugs`, `bases`, `default_term`, `options`, `duplicate`, `media`, `strings`, `users`, `frontend`.
+
+== Template functions ==
+
+* `cosmo_mlk_language()`, `cosmo_mlk_default_language()`, `cosmo_mlk_locale( $language )`, `cosmo_mlk_languages()`
+* `cosmo_mlk_home_url( $path, $language )`, `cosmo_mlk_url_prefix( $language )`, `cosmo_mlk_url_base( $key, $language )`
+* `cosmo_mlk_switcher( $args )` — languages for a switcher: slug, name, locale, url, flag, current
+* `cosmo_mlk_t( $key, $fallback )` — translated template string
+* `cosmo_mlk_user_field( $user_id, $key, $language )`, `cosmo_mlk_image_alt( $attachment_id, $language )`
+* `cosmo_mlk_translated_post( $post_id, $language )`, `cosmo_mlk_readable_translation( $post_id, $language )`, `cosmo_mlk_pending_translations()`
+* `cosmo_mlk_term_by_slug( $slug, $taxonomy, $language )`, `cosmo_mlk_insert_term( $name, $taxonomy, $language, $args )`
+* `cosmo_mlk_duplicate_post( $post_id, $language, $args )`, `cosmo_mlk_link_translations( $map )`, `cosmo_mlk_link_term_translations( $map )`
+* `cosmo_mlk_copy_options( $from, $to, $pages )`, `cosmo_mlk_migrate_legacy_options( $language )`
+
+Every function keeps working with Polylang switched off, falling back to a single default language.
+
+== Hooks ==
+
+* `cosmo/multilingual_kit/config` — the configuration above.
+* `cosmo/multilingual_kit/switcher` — filters the switcher language list.
+* `cosmo/multilingual_kit/duplicated` — fires after a translation is created by copying: `( $new_id, $source_id, $language )`.
+
+== Frequently Asked Questions ==
+
+= I switched an existing site to per-language options and the settings look empty =
+
+Values saved before were stored without a language. Run `cosmo_mlk_migrate_legacy_options()` once to move them to the default language.
+
+= Does it work with Polylang PRO? =
+
+It targets Polylang free. With PRO active, the `slugs`, `bases` and `duplicate` modules switch themselves off, since PRO covers them. An explicit `modules` entry in the config overrides that.
+
+= Which modules switch themselves off? =
+
+The Plugins screen lists them with the reason:
+
+* `slugs` and `bases` and `duplicate` with Polylang PRO.
+* `slugs` when Polylang sets the language from the content: with no language in the URL, shared slugs cannot be told apart.
+* `options` with ACF Options For Polylang, which stores options per language on its own.
+* `media` when Polylang media translation is on, as every language then has its own attachment.
+
+= Which URL modes are supported? =
+
+Language as a directory (with or without `/language/`), as a subdomain, or as a domain. Sites installed in a subdirectory work too.
+
+= Can I duplicate WooCommerce products? =
+
+No. WooCommerce keeps product data outside post meta, so a plain copy would give a broken product.
+
+== Changelog ==
+
+= 1.0.0 =
+* First release.

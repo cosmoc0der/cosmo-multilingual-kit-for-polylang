@@ -1,0 +1,61 @@
+.cosmo-mlk-lang-bar {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 20px 0 0;
+	padding: 10px 14px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+}
+
+.cosmo-mlk-lang-bar__title {
+	margin-right: 4px;
+	color: #646970;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+.cosmo-mlk-lang-bar__list {
+	display: flex;
+	flex-wrap: wrap;
+	padding: 2px;
+	background: #f0f0f1;
+	border-radius: 6px;
+}
+
+.cosmo-mlk-lang-bar__lang {
+	padding: 5px 14px;
+	border-radius: 4px;
+	color: #646970;
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 1.6;
+	text-decoration: none;
+}
+
+.cosmo-mlk-lang-bar__lang:hover,
+.cosmo-mlk-lang-bar__lang:focus {
+	color: #1d2327;
+	box-shadow: none;
+}
+
+.cosmo-mlk-lang-bar__lang.is-active {
+	background: #fff;
+	color: #1d2327;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+}
+
+.cosmo-mlk-lang-bar__copy {
+	margin-left: auto;
+}
+
+@media (max-width: 782px) {
+	.cosmo-mlk-lang-bar__copy {
+		margin-left: 0;
+	}
+}
