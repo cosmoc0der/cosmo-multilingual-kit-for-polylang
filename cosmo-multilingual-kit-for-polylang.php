@@ -3,7 +3,7 @@
  * Plugin Name:       Cosmo Multilingual Kit for Polylang
  * Plugin URI:        https://github.com/cosmoc0der/cosmo-multilingual-kit-for-polylang
  * Description:       Fills the gaps of Polylang free: the same slug in every language, translated URL bases, per-language ACF options pages, duplicate-as-translation, per-language image alt, theme strings and author fields.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            Bakhodir Sharipov
@@ -19,7 +19,7 @@ namespace cosmo\Multilingual_Kit_For_Polylang;
 
 defined( 'ABSPATH' ) || exit;
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const FILE    = __FILE__;
 
 spl_autoload_register(

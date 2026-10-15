@@ -10,7 +10,10 @@ defined( 'ABSPATH' ) || exit;
 final class Frontend {
 
 	public static function init(): void {
+		add_filter( 'pll_rel_hreflang_attributes', [ self::class, 'drop_unavailable_hreflangs' ], 5 );
 		add_filter( 'pll_rel_hreflang_attributes', [ self::class, 'add_x_default' ] );
+		add_action( 'template_redirect', [ self::class, 'redirect_untranslated_front' ] );
+		add_filter( 'home_url', [ self::class, 'untranslated_front_home' ], 20, 2 );
 		add_action( 'admin_bar_menu', [ self::class, 'fix_admin_bar_edit_link' ], 90 );
 	}
 
@@ -19,19 +22,25 @@ final class Frontend {
 	 * copies, untranslated views, and front or posts pages without a readable
 	 * translation, which it links to another language's home.
 	 *
-	 * @param array $args Extra pll_the_languages() arguments.
-	 * @return array<int,array{slug:string,name:string,locale:string,url:string,flag:string,current:bool}>
+	 * With `keep_unavailable` those languages stay in the list with `available`
+	 * false and no url, for a switcher that shows them greyed out.
+	 *
+	 * @param array $args Extra pll_the_languages() arguments, plus `keep_unavailable`.
+	 * @return array<int,array{slug:string,name:string,locale:string,url:string,flag:string,current:bool,available:bool}>
 	 */
 	public static function switcher( array $args = [] ): array {
 		if ( ! Config::active() || ! function_exists( 'pll_the_languages' ) ) {
 			return [];
 		}
 
+		$keep_unavailable = ! empty( $args['keep_unavailable'] );
+		unset( $args['keep_unavailable'] );
+
 		// hide_if_empty would hide the whole switcher while a language has no posts yet.
 		$raw = pll_the_languages( array_merge( [
 			'raw'                    => 1,
 			'hide_if_empty'          => 0,
-			'hide_if_no_translation' => 1,
+			'hide_if_no_translation' => $keep_unavailable ? 0 : 1,
 			'display_names_as'       => 'name',
 		], $args ) );
 
@@ -49,25 +58,29 @@ final class Frontend {
 			$current = ! empty( $language['current_lang'] );
 			$slug    = (string) $language['slug'];
 
-			$skip = ! $current && (
+			if ( ! $current && in_array( $slug, $hidden, true ) ) {
+				continue;
+			}
+
+			$available = $current || ! (
 				$only_current
 				|| ! empty( $language['no_translation'] )
-				|| in_array( $slug, $hidden, true )
 				|| isset( $pending[ $slug ] )
 				|| ( $required_page && ! self::readable_translation( $required_page, $slug ) )
 			);
 
-			if ( $skip ) {
+			if ( ! $available && ! $keep_unavailable ) {
 				continue;
 			}
 
 			$items[] = [
-				'slug'    => $slug,
-				'name'    => (string) $language['name'],
-				'locale'  => (string) ( $language['locale'] ?? Config::locale( $slug ) ),
-				'url'     => (string) $language['url'],
-				'flag'    => (string) ( $language['flag'] ?? '' ),
-				'current' => $current,
+				'slug'      => $slug,
+				'name'      => (string) $language['name'],
+				'locale'    => (string) ( $language['locale'] ?? Config::locale( $slug ) ),
+				'url'       => $available ? (string) $language['url'] : '',
+				'flag'      => (string) ( $language['flag'] ?? '' ),
+				'current'   => $current,
+				'available' => $available,
 			];
 		}
 
@@ -87,21 +100,104 @@ final class Frontend {
 		return get_post_status( $translation ) === 'publish' || current_user_can( 'read_post', $translation ) ? $translation : 0;
 	}
 
+	public static function add_x_default( $hreflangs ) {
+		if ( ! Config::get( 'x_default' ) || isset( $hreflangs['x-default'] ) ) {
+			return $hreflangs;
+		}
+
+		$key = self::hreflang_key( $hreflangs, Config::default_language() );
+
+		return $key === '' ? $hreflangs : array_merge( [ 'x-default' => $hreflangs[ $key ] ], $hreflangs );
+	}
+
+	/**
+	 * Polylang lists every language's home, translated front page or not, and
+	 * knows nothing of hidden languages.
+	 */
+	public static function drop_unavailable_hreflangs( $hreflangs ) {
+		if ( ! is_array( $hreflangs ) ) {
+			return $hreflangs;
+		}
+
+		$front  = self::static_front_page();
+		$hidden = (array) Config::get( 'hidden_languages' );
+
+		foreach ( pll_languages_list() as $slug ) {
+			$key = self::hreflang_key( $hreflangs, $slug );
+
+			if ( $key !== '' && ( in_array( $slug, $hidden, true ) || ( $front && ! self::readable_translation( $front, $slug ) ) ) ) {
+				unset( $hreflangs[ $key ] );
+			}
+		}
+
+		return $hreflangs;
+	}
+
+	/**
+	 * Without a translated front page Polylang serves the latest posts on the
+	 * language's home, which is an empty blog until that language has posts.
+	 */
+	public static function redirect_untranslated_front(): void {
+		$language = Config::current_language();
+
+		// Paths only: with subdomains or domains home_url() keeps the main host.
+		if (
+			! is_home() || is_paged() || ! self::front_untranslated( $language )
+			|| self::url_path( home_url( $GLOBALS['wp']->request ) ) !== self::url_path( pll_home_url( $language ) )
+		) {
+			return;
+		}
+
+		wp_safe_redirect( pll_home_url( Config::default_language() ) );
+		exit;
+	}
+
+	/** Logo and other home links would otherwise bounce off the redirect above. */
+	public static function untranslated_front_home( $url, $path ) {
+		if ( is_admin() || ( $path !== '' && $path !== '/' ) || ! did_action( 'pll_language_defined' ) ) {
+			return $url;
+		}
+
+		$language = Config::current_language();
+
+		if ( untrailingslashit( $url ) !== untrailingslashit( pll_home_url( $language ) ) || ! self::front_untranslated( $language ) ) {
+			return $url;
+		}
+
+		return pll_home_url( Config::default_language() );
+	}
+
+	private static function front_untranslated( string $language ): bool {
+		$front = (int) get_option( 'page_on_front' );
+
+		return get_option( 'show_on_front' ) === 'page' && $front
+			&& $language !== Config::default_language() && ! self::readable_translation( $front, $language );
+	}
+
+	private static function url_path( string $url ): string {
+		return trailingslashit( (string) wp_parse_url( $url, PHP_URL_PATH ) );
+	}
+
 	/**
 	 * Polylang keys hreflangs by locale, cut to the language code when no other
 	 * language shares it, so the language slug may match neither.
 	 */
-	public static function add_x_default( $hreflangs ) {
-		$language = PLL()->model->get_language( Config::default_language() );
+	private static function hreflang_key( array $hreflangs, string $slug ): string {
+		$language = PLL()->model->get_language( $slug );
 
-		if ( ! Config::get( 'x_default' ) || ! $language || isset( $hreflangs['x-default'] ) ) {
-			return $hreflangs;
+		if ( ! $language ) {
+			return '';
 		}
 
 		$locale = $language->get_locale( 'display' );
-		$url    = $hreflangs[ $locale ] ?? $hreflangs[ explode( '-', $locale )[0] ] ?? '';
 
-		return $url === '' ? $hreflangs : array_merge( [ 'x-default' => $url ], $hreflangs );
+		foreach ( [ $locale, explode( '-', $locale )[0] ] as $key ) {
+			if ( isset( $hreflangs[ $key ] ) ) {
+				return $key;
+			}
+		}
+
+		return '';
 	}
 
 	public static function fix_admin_bar_edit_link( $wp_admin_bar ): void {

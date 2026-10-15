@@ -16,6 +16,9 @@ final class Plugin {
 		'default_term' => Default_Term::class,
 		'options'      => Options::class,
 		'duplicate'    => Duplicate::class,
+		'translations' => Translations::class,
+		'menus'        => Menus::class,
+		'ids'          => Ids::class,
 		'media'        => Media::class,
 		'strings'      => Strings::class,
 		'users'        => Users::class,
@@ -41,11 +44,18 @@ final class Plugin {
 
 		self::$conflicts = array_diff_key( self::detect_conflicts(), (array) Config::get( 'modules' ) );
 
+		Copier::init();
+
 		foreach ( self::MODULES as $key => $class ) {
 			if ( Config::module_enabled( $key, ! isset( self::$conflicts[ $key ] ) ) ) {
 				$class::init();
 			}
 		}
+	}
+
+	public static function enqueue_admin_assets(): void {
+		wp_enqueue_style( 'cosmo-mlk-admin', plugins_url( 'assets/admin.css', FILE ), [], VERSION );
+		wp_enqueue_script( 'cosmo-mlk-admin', plugins_url( 'assets/admin.js', FILE ), [], VERSION, true );
 	}
 
 	/**

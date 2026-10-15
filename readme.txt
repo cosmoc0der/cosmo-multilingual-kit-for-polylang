@@ -4,7 +4,7 @@ Tags: polylang, multilingual, translation, slugs, acf
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,11 +18,16 @@ Polylang free covers the basics. Building a real multilingual theme on it, you q
 * **Translated URL bases.** `/success-stories/` in English, `/es/casos-de-exito/` in Spanish, for post types, taxonomies and the blog base.
 * **Per-language ACF / SCF options pages.** Language tabs above the options page, a "copy from the default language" button, and a fallback to the default language for empty values. `get_field( 'name', 'options' )` keeps working.
 * **Duplicate as translation.** A "Duplicate → Español" row action copies blocks, custom fields, featured image, template and terms, and links the posts as translations.
+* **Copy from another language.** A "Translation" box in the editor replaces a translation's title, content, custom fields and terms with those of any other language, like WPML's "Copy content from". New translations created with Polylang's "+" start pre-filled from the source post.
+* **Outdated translations.** A translation remembers what it was copied from. Once the source changes, the editor box and the posts list flag it as outdated until it is marked up to date or copied again.
+* **Menu sync.** One button on the Menus screen copies the default language menus to every other language and assigns them to the same locations. Items point to the translated posts and terms, labels already translated are kept, and items removed from the source are removed from the copies.
+* **Translated ids on output.** Reusable blocks and ACF post object, relationship and taxonomy values, options pages included, show the current language's translation when there is one.
 * **Default category in every language.** Repairs the default category translation Polylang leaves without a language when languages are created programmatically, and creates missing ones.
 * **Image alt per language**, with a fallback to the library alt, for images output with `wp_get_attachment_image()`. The block editor's Image block saves its alt into the post content and is translated with the post.
 * **Theme strings** in Languages → Translations.
 * **Author profile fields per language**, including the biography fallback Polylang free lacks.
-* **Language switcher data** that hides untranslated, hidden or not-yet-translated copies, plus hreflang `x-default`.
+* **Language switcher data** that hides untranslated, hidden or not-yet-translated copies, or keeps them greyed out, plus hreflang `x-default`.
+* **Untranslated front page.** Until the static front page is translated, a language's home redirects to the default language one instead of showing its empty blog, home links follow, and hreflang leaves that language out. Hidden languages are left out of hreflang too.
 
 Requires Polylang 3.7 or later.
 
@@ -56,20 +61,23 @@ add_filter( 'cosmo/multilingual_kit/config', function ( $config ) {
 * `strings`, `strings_group` — template strings registered with Polylang.
 * `user_fields` — profile fields translated per language.
 * `pending_meta` — meta key set on duplicated copies; while set, the language switcher hides that language.
-* `hidden_languages` — languages never offered by the switcher, e.g. while their content is being prepared.
+* `hidden_languages` — languages left out of the switcher and hreflang, e.g. while their content is being prepared.
 * `x_default` — add hreflang `x-default` (default `true`).
-* `modules` — switch modules off: `[ 'media' => false ]`. Keys: `slugs`, `bases`, `default_term`, `options`, `duplicate`, `media`, `strings`, `users`, `frontend`.
+* `prefill_translations` — pre-fill translations created with Polylang's "+" from the source post (default `true`, off with Polylang PRO, which does it itself).
+* `modules` — switch modules off: `[ 'media' => false ]`. Keys: `slugs`, `bases`, `default_term`, `options`, `duplicate`, `translations`, `menus`, `ids`, `media`, `strings`, `users`, `frontend`.
 
 == Template functions ==
 
 * `cosmo_mlk_language()`, `cosmo_mlk_default_language()`, `cosmo_mlk_locale( $language )`, `cosmo_mlk_languages()`
 * `cosmo_mlk_home_url( $path, $language )`, `cosmo_mlk_url_prefix( $language )`, `cosmo_mlk_url_base( $key, $language )`
-* `cosmo_mlk_switcher( $args )` — languages for a switcher: slug, name, locale, url, flag, current
+* `cosmo_mlk_switcher( $args )` — languages for a switcher: slug, name, locale, url, flag, current, available. Pass `keep_unavailable => true` to keep untranslated languages with an empty url.
 * `cosmo_mlk_t( $key, $fallback )` — translated template string
 * `cosmo_mlk_user_field( $user_id, $key, $language )`, `cosmo_mlk_image_alt( $attachment_id, $language )`
 * `cosmo_mlk_translated_post( $post_id, $language )`, `cosmo_mlk_readable_translation( $post_id, $language )`, `cosmo_mlk_pending_translations()`
 * `cosmo_mlk_term_by_slug( $slug, $taxonomy, $language )`, `cosmo_mlk_insert_term( $name, $taxonomy, $language, $args )`
 * `cosmo_mlk_duplicate_post( $post_id, $language, $args )`, `cosmo_mlk_link_translations( $map )`, `cosmo_mlk_link_term_translations( $map )`
+* `cosmo_mlk_copy_post( $from, $to )`, `cosmo_mlk_translation_outdated( $post_id )`
+* `cosmo_mlk_sync_menus()`
 * `cosmo_mlk_copy_options( $from, $to, $pages )`, `cosmo_mlk_migrate_legacy_options( $language )`
 
 Every function keeps working with Polylang switched off, falling back to a single default language.
@@ -79,6 +87,7 @@ Every function keeps working with Polylang switched off, falling back to a singl
 * `cosmo/multilingual_kit/config` — the configuration above.
 * `cosmo/multilingual_kit/switcher` — filters the switcher language list.
 * `cosmo/multilingual_kit/duplicated` — fires after a translation is created by copying: `( $new_id, $source_id, $language )`.
+* `cosmo/multilingual_kit/copied` — fires after an existing translation is overwritten from another language: `( $post_id, $source_id, $language )`.
 
 == Frequently Asked Questions ==
 
@@ -108,6 +117,15 @@ Language as a directory (with or without `/language/`), as a subdomain, or as a 
 No. WooCommerce keeps product data outside post meta, so a plain copy would give a broken product.
 
 == Changelog ==
+
+= 1.1.0 =
+* Copy from another language, pre-filled new translations and outdated translation tracking.
+* Menu sync across languages.
+* Reusable blocks and ACF relational fields follow the current language.
+* Switcher can keep untranslated languages greyed out.
+* Untranslated front page no longer exposes an empty blog in other languages.
+* Hidden languages are left out of hreflang.
+* Options pages: get_field() by name works in a language that was never saved.
 
 = 1.0.0 =
 * First release.

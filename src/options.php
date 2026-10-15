@@ -24,6 +24,7 @@ final class Options {
 
 		add_filter( 'acf/validate_post_id', [ self::class, 'validate_post_id' ], 10, 2 );
 		add_filter( 'acf/load_value', [ self::class, 'fallback_to_default_language' ], 20, 3 );
+		add_filter( 'acf/load_reference', [ self::class, 'fallback_reference' ], 20, 3 );
 
 		add_action( 'admin_notices', [ self::class, 'render_language_tabs' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue_assets' ] );
@@ -43,18 +44,28 @@ final class Options {
 			return $value;
 		}
 
-		[ $base, $language ] = self::split_store( $post_id );
-		$default             = Config::default_language();
+		$default = self::default_store( $post_id );
 
-		if ( $base === '' || $language === $default ) {
+		if ( $default === '' ) {
 			return $value;
 		}
 
 		self::$loading_fallback = true;
-		$value                  = acf_get_value( self::store( $base, $default ), $field );
+		$value                  = acf_get_value( $default, $field );
 		self::$loading_fallback = false;
 
 		return $value;
+	}
+
+	/** Without it get_field() by name cannot tell which field a never saved language means. */
+	public static function fallback_reference( $reference, $field_name, $post_id ) {
+		if ( $reference || ! is_string( $post_id ) ) {
+			return $reference;
+		}
+
+		$default = self::default_store( $post_id );
+
+		return $default === '' ? $reference : acf_get_reference( $field_name, $default );
 	}
 
 	public static function enqueue_assets(): void {
@@ -62,8 +73,7 @@ final class Options {
 			return;
 		}
 
-		wp_enqueue_style( 'cosmo-mlk-options', plugins_url( 'assets/options.css', FILE ), [], VERSION );
-		wp_enqueue_script( 'cosmo-mlk-options', plugins_url( 'assets/options.js', FILE ), [], VERSION, true );
+		Plugin::enqueue_admin_assets();
 	}
 
 	public static function render_language_tabs(): void {
@@ -108,7 +118,7 @@ final class Options {
 			);
 
 			printf(
-				'<a href="%1$s" class="button cosmo-mlk-lang-bar__copy" data-confirm="%2$s">%3$s</a>',
+				'<a href="%1$s" class="button cosmo-mlk-lang-bar__copy" data-cosmo-mlk-confirm="%2$s">%3$s</a>',
 				esc_url( $copy_url ),
 				esc_attr__( 'Overwrite the settings of this language with values from the default language?', 'cosmo-multilingual-kit-for-polylang' ),
 				esc_html( sprintf(
@@ -267,6 +277,14 @@ final class Options {
 
 	private static function store( string $base, string $language ): string {
 		return $base . '_' . $language;
+	}
+
+	/** The default language's store for another language's one, empty otherwise. */
+	private static function default_store( string $post_id ): string {
+		[ $base, $language ] = self::split_store( $post_id );
+		$default             = Config::default_language();
+
+		return $base === '' || $language === $default ? '' : self::store( $base, $default );
 	}
 
 	/**

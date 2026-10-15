@@ -59,3 +59,25 @@
 		margin-left: 0;
 	}
 }
+
+.cosmo-mlk-box__done,
+.cosmo-mlk-box__outdated {
+	margin: 0 0 8px;
+	padding: 8px 10px;
+	border-left: 4px solid;
+	background: #f6f7f7;
+}
+
+.cosmo-mlk-box__done {
+	border-color: #00a32a;
+}
+
+.cosmo-mlk-box__outdated {
+	border-color: #dba617;
+}
+
+.cosmo-mlk-box__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}

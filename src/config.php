@@ -16,19 +16,20 @@ final class Config {
 	public const MIN_POLYLANG = '3.7';
 
 	private const DEFAULTS = [
-		'post_types'        => [],
-		'taxonomies'        => [],
-		'bases'             => [],
-		'base_map'          => [],
-		'options_pages'     => [],
-		'strings'           => [],
-		'strings_group'     => '',
-		'user_fields'       => [],
-		'pending_meta'      => '',
-		'hidden_languages'  => [],
-		'x_default'         => true,
-		'fallback_language' => 'en',
-		'modules'           => [],
+		'post_types'           => [],
+		'taxonomies'           => [],
+		'bases'                => [],
+		'base_map'             => [],
+		'options_pages'        => [],
+		'strings'              => [],
+		'strings_group'        => '',
+		'user_fields'          => [],
+		'pending_meta'         => '',
+		'hidden_languages'     => [],
+		'x_default'            => true,
+		'fallback_language'    => 'en',
+		'prefill_translations' => true,
+		'modules'              => [],
 	];
 
 	/** @var array<string,mixed>|null */

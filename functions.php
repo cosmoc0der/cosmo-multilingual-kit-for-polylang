@@ -11,9 +11,11 @@ use cosmo\Multilingual_Kit_For_Polylang\Config;
 use cosmo\Multilingual_Kit_For_Polylang\Duplicate;
 use cosmo\Multilingual_Kit_For_Polylang\Frontend;
 use cosmo\Multilingual_Kit_For_Polylang\Media;
+use cosmo\Multilingual_Kit_For_Polylang\Menus;
 use cosmo\Multilingual_Kit_For_Polylang\Options;
 use cosmo\Multilingual_Kit_For_Polylang\Slugs;
 use cosmo\Multilingual_Kit_For_Polylang\Strings;
+use cosmo\Multilingual_Kit_For_Polylang\Translations;
 use cosmo\Multilingual_Kit_For_Polylang\Users;
 
 defined( 'ABSPATH' ) || exit;
@@ -108,6 +110,33 @@ function cosmo_mlk_insert_term( string $name, string $taxonomy, string $language
  */
 function cosmo_mlk_duplicate_post( int $post_id, string $language, array $args = [] ) {
 	return Duplicate::duplicate( $post_id, $language, $args );
+}
+
+/**
+ * Replaces a translation's title, content, custom fields and terms with those of another language.
+ *
+ * @return true|WP_Error
+ */
+function cosmo_mlk_copy_post( int $from, int $to ) {
+	return Translations::copy( $from, $to );
+}
+
+/**
+ * Whether the post it was copied from has changed since.
+ */
+function cosmo_mlk_translation_outdated( int $post_id ): bool {
+	$status = Translations::status( $post_id );
+
+	return $status ? $status['outdated'] : false;
+}
+
+/**
+ * Copies the default language menus to the other languages.
+ *
+ * @return int Number of menus written.
+ */
+function cosmo_mlk_sync_menus(): int {
+	return Menus::sync();
 }
 
 /**
