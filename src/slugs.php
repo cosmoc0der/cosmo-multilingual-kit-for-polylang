@@ -52,11 +52,9 @@ final class Slugs {
 			'post_type'        => $post_type,
 			'post_status'      => self::LOOKUP_STATUSES,
 			'name'             => $original_slug,
-			'posts_per_page'   => 20,
-			'fields'           => 'ids',
-			'post__not_in'     => [ (int) $post_id ],
-			'suppress_filters' => true,
-			'lang'             => '',
+			'posts_per_page' => 20,
+			'fields'         => 'ids',
+			'lang'           => '',
 		];
 
 		// Core gives pages and attachments one namespace.
@@ -66,7 +64,7 @@ final class Slugs {
 			$args['post_parent'] = (int) $post_parent;
 		}
 
-		$conflicts = get_posts( $args );
+		$conflicts = array_diff( get_posts( $args ), [ (int) $post_id ] );
 
 		// Core suffixed the slug for another reason: a feed name, a date archive, a reserved word.
 		if ( ! $conflicts ) {
@@ -146,13 +144,12 @@ final class Slugs {
 
 	private static function resolve_single_language( \WP_Query $query, string $post_type, string $query_var, string $slug, string $language ): void {
 		$found = get_posts( [
-			'post_type'        => $post_type,
-			'post_status'      => 'publish',
-			'name'             => $slug,
-			'posts_per_page'   => 20,
-			'fields'           => 'ids',
-			'suppress_filters' => true,
-			'lang'             => '',
+			'post_type'      => $post_type,
+			'post_status'    => 'publish',
+			'name'           => $slug,
+			'posts_per_page' => 20,
+			'fields'         => 'ids',
+			'lang'           => '',
 		] );
 
 		$target = 0;
@@ -238,13 +235,12 @@ final class Slugs {
 
 	private static function find_post( string $post_type, string $slug, string $language ): int {
 		$found = get_posts( [
-			'post_type'        => $post_type,
-			'post_status'      => self::LOOKUP_STATUSES,
-			'name'             => $slug,
-			'posts_per_page'   => 1,
-			'fields'           => 'ids',
-			'suppress_filters' => true,
-			'lang'             => $language,
+			'post_type'      => $post_type,
+			'post_status'    => self::LOOKUP_STATUSES,
+			'name'           => $slug,
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'lang'           => $language,
 		] );
 
 		return (int) ( $found[0] ?? 0 );
@@ -282,7 +278,7 @@ final class Slugs {
 		}
 
 		// Polylang answers this in the term screens and inside PLL()->model->term->insert().
-		$language = apply_filters( 'pll_inserted_term_language', null, $taxonomy, $slug );
+		$language = apply_filters( 'pll_inserted_term_language', null, $taxonomy, $slug ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Polylang's own filter.
 		$language = $language instanceof \PLL_Language ? $language->slug : '';
 
 		if ( ! $language && $term_id ) {

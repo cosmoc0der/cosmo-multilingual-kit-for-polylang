@@ -219,7 +219,7 @@ final class Translations {
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- validated in new_translation_source().
-		$language = sanitize_key( wp_unslash( $_GET['new_lang'] ) );
+		$language = isset( $_GET['new_lang'] ) ? sanitize_key( wp_unslash( $_GET['new_lang'] ) ) : '';
 
 		Copier::copy_meta( $source->ID, (int) $post_id );
 		Copier::copy_terms( $source->ID, (int) $post_id, $language );

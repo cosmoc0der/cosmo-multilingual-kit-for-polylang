@@ -33,6 +33,13 @@ Requires Polylang 3.7 or later.
 
 Cosmo Multilingual Kit for Polylang is an independent, unofficial plugin. "Polylang" is a trademark of WP SYNTEX; this plugin is not affiliated with or endorsed by WP SYNTEX, and the name refers to that plugin solely to describe what this one works with.
 
+== Installation ==
+
+1. Install and activate Polylang 3.7 or later, and add your languages.
+2. Upload the plugin through **Plugins - Add New - Upload Plugin**, or install it from the plugin directory.
+3. Activate **Cosmo Multilingual Kit for Polylang**.
+4. Add the `cosmo/multilingual_kit/config` filter to your theme (see Configuration in the description) and flush permalinks under **Settings - Permalinks**.
+
 == Configuration ==
 
 Everything is configured through a single filter, typically in the theme's `functions.php`:
