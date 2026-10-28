@@ -218,7 +218,7 @@ final class Translations {
 			return;
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- validated in new_translation_source().
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- verified in new_translation_source().
 		$language = isset( $_GET['new_lang'] ) ? sanitize_key( wp_unslash( $_GET['new_lang'] ) ) : '';
 
 		Copier::copy_meta( $source->ID, (int) $post_id );
@@ -228,19 +228,23 @@ final class Translations {
 	}
 
 	/**
-	 * The post behind Polylang's "+" link: post-new.php?from_post=…&new_lang=….
+	 * The post behind Polylang's "+" link: post-new.php?from_post=…&new_lang=…&_wpnonce=….
 	 */
 	private static function new_translation_source(): ?\WP_Post {
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Polylang checks its own nonce on this screen; nothing is changed here.
-		if ( ( $GLOBALS['pagenow'] ?? '' ) !== 'post-new.php' || empty( $_GET['from_post'] ) || empty( $_GET['new_lang'] ) ) {
+		if ( ( $GLOBALS['pagenow'] ?? '' ) !== 'post-new.php' || empty( $_GET['from_post'] ) || empty( $_GET['new_lang'] ) || empty( $_GET['_wpnonce'] ) ) {
+			return null;
+		}
+
+		// Polylang's own nonce for the "+" link.
+		if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'new-post-translation' ) ) {
 			return null;
 		}
 
 		$source   = get_post( absint( $_GET['from_post'] ) );
 		$language = sanitize_key( wp_unslash( $_GET['new_lang'] ) );
-		// phpcs:enable
+		$type     = $source ? get_post_type_object( $source->post_type ) : null;
 
-		if ( ! $source || ! Config::language_exists( $language ) || Duplicate::source_language( $source ) === '' || ! current_user_can( 'read_post', $source->ID ) ) {
+		if ( ! $type || ! current_user_can( $type->cap->create_posts ) || ! Config::language_exists( $language ) || Duplicate::source_language( $source ) === '' || ! current_user_can( 'read_post', $source->ID ) ) {
 			return null;
 		}
 

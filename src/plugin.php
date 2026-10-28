@@ -89,7 +89,7 @@ final class Plugin {
 	}
 
 	public static function render_missing_polylang_notice(): void {
-		if ( Config::polylang_supported() || ! current_user_can( 'activate_plugins' ) ) {
+		if ( Config::polylang_supported() || ! self::on_plugins_screen() ) {
 			return;
 		}
 
@@ -104,9 +104,7 @@ final class Plugin {
 	}
 
 	public static function render_conflicts_notice(): void {
-		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-
-		if ( ! self::$conflicts || ! $screen || $screen->id !== 'plugins' || ! current_user_can( 'activate_plugins' ) ) {
+		if ( ! self::$conflicts || ! self::on_plugins_screen() ) {
 			return;
 		}
 
@@ -117,5 +115,11 @@ final class Plugin {
 		}
 
 		echo '</ul></div>';
+	}
+
+	private static function on_plugins_screen(): bool {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+
+		return $screen && $screen->id === 'plugins' && current_user_can( 'activate_plugins' );
 	}
 }

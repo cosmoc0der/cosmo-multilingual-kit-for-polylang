@@ -52,11 +52,11 @@ final class Users {
 		echo '</table>';
 	}
 
-	/**
-	 * Core checks the profile form nonce before firing the update hooks.
-	 */
 	public static function save_fields( $user_id ): void {
-		if ( ! current_user_can( 'edit_user', $user_id ) ) {
+		// The profile form's own nonce.
+		$nonce = isset( $_POST['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ) : '';
+
+		if ( ! wp_verify_nonce( $nonce, 'update-user_' . $user_id ) || ! current_user_can( 'edit_user', $user_id ) ) {
 			return;
 		}
 
@@ -64,13 +64,11 @@ final class Users {
 			foreach ( array_keys( Config::secondary_languages() ) as $slug ) {
 				$name = $key . '_' . $slug;
 
-				// phpcs:disable WordPress.Security.NonceVerification.Missing
 				if ( ! isset( $_POST[ $name ] ) ) {
 					continue;
 				}
 
 				$value = sanitize_text_field( wp_unslash( $_POST[ $name ] ) );
-				// phpcs:enable
 
 				if ( $value === '' ) {
 					delete_user_meta( $user_id, $name );
