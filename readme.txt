@@ -4,7 +4,7 @@ Tags: polylang, multilingual, translation, slugs, acf
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.1
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -27,6 +27,9 @@ Polylang free covers the basics. Building a real multilingual theme on it, you q
 * **Theme strings** in Languages → Translations.
 * **Author profile fields per language**, including the biography fallback Polylang free lacks.
 * **Language switcher data** that hides untranslated, hidden or not-yet-translated copies, or keeps them greyed out, plus hreflang `x-default`.
+* **Paged archives.** The switcher and hreflang of `/page/2/` point to page 2 of each translation, and a language with fewer pages is left out. Polylang prints no hreflang on paged archives at all.
+* **No foreign slugs.** A URL reached through another language's slug, like `/pt/recursos/` for `/pt/blog-e-noticias/`, redirects to the translation's own address instead of serving a duplicate.
+* **One Yoast sitemap per language.** With languages in directories the sitemap index lists `en-sitemap.xml`, `es-sitemap.xml`… instead of per-type maps that mix every language. Yoast's own rules for noindex, exclusions and canonicals still apply.
 * **Untranslated front page.** Until the static front page is translated, a language's home redirects to the default language one instead of showing its empty blog, home links follow, and hreflang leaves that language out. Hidden languages are left out of hreflang too.
 
 Requires Polylang 3.7 or later.
@@ -71,7 +74,7 @@ add_filter( 'cosmo/multilingual_kit/config', function ( $config ) {
 * `hidden_languages` — languages left out of the switcher and hreflang, e.g. while their content is being prepared.
 * `x_default` — add hreflang `x-default` (default `true`).
 * `prefill_translations` — pre-fill translations created with Polylang's "+" from the source post (default `true`, off with Polylang PRO, which does it itself).
-* `modules` — switch modules off: `[ 'media' => false ]`. Keys: `slugs`, `bases`, `default_term`, `options`, `duplicate`, `translations`, `menus`, `ids`, `media`, `strings`, `users`, `frontend`.
+* `modules` — switch modules off: `[ 'media' => false ]`. Keys: `slugs`, `bases`, `default_term`, `options`, `duplicate`, `translations`, `menus`, `ids`, `media`, `strings`, `users`, `frontend`, `sitemaps`.
 
 == Template functions ==
 
@@ -93,6 +96,7 @@ Every function keeps working with Polylang switched off, falling back to a singl
 
 * `cosmo/multilingual_kit/config` — the configuration above.
 * `cosmo/multilingual_kit/switcher` — filters the switcher language list.
+* `cosmo/multilingual_kit/per_page` — posts per page of a post type archive, for the paged URLs in the language sitemaps: `( $per_page, $post_type )`. Defaults to the Reading setting.
 * `cosmo/multilingual_kit/duplicated` — fires after a translation is created by copying: `( $new_id, $source_id, $language )`.
 * `cosmo/multilingual_kit/copied` — fires after an existing translation is overwritten from another language: `( $post_id, $source_id, $language )`.
 
@@ -124,6 +128,11 @@ Language as a directory (with or without `/language/`), as a subdomain, or as a 
 No. WooCommerce keeps product data outside post meta, so a plain copy would give a broken product.
 
 == Changelog ==
+
+= 1.2.0 =
+* Paged archives keep the page number in the switcher and get hreflang, which Polylang leaves out.
+* URLs reached through another language's slug redirect to the translation's own address.
+* New `sitemaps` module: one Yoast sitemap per language, paged archives included.
 
 = 1.1.1 =
 * Template functions are pluggable, so the plugin activates on a theme that declares its own fallbacks for them.

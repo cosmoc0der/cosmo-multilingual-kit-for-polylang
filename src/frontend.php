@@ -12,6 +12,8 @@ final class Frontend {
 	public static function init(): void {
 		add_filter( 'pll_rel_hreflang_attributes', [ self::class, 'drop_unavailable_hreflangs' ], 5 );
 		add_filter( 'pll_rel_hreflang_attributes', [ self::class, 'add_x_default' ] );
+		add_filter( 'pll_translation_url', [ self::class, 'keep_page_number' ], 10, 2 );
+		add_action( 'wp_head', [ self::class, 'paged_hreflangs' ], 1 );
 		add_action( 'template_redirect', [ self::class, 'redirect_untranslated_front' ] );
 		add_filter( 'home_url', [ self::class, 'untranslated_front_home' ], 20, 2 );
 		add_action( 'admin_bar_menu', [ self::class, 'fix_admin_bar_edit_link' ], 90 );
@@ -131,6 +133,78 @@ final class Frontend {
 		}
 
 		return $hreflangs;
+	}
+
+	/**
+	 * Polylang links every paged archive to the first page of its translation.
+	 * Page N leads to page N instead, and a language that has fewer pages is
+	 * dropped from the switcher and the hreflangs alike.
+	 *
+	 * @param string|null $url
+	 * @param string      $language
+	 */
+	public static function keep_page_number( $url, $language ) {
+		$page = (int) get_query_var( 'paged' );
+
+		if ( ! $url || $page < 2 ) {
+			return $url;
+		}
+
+		if ( self::last_page( (string) $language ) < $page ) {
+			return null;
+		}
+
+		$links = PLL()->links_model;
+
+		return $links->add_paged_to_link( $links->remove_paged_from_link( $url ), $page );
+	}
+
+	/**
+	 * Polylang prints no hreflangs on paged archives, yet each page carries a
+	 * self canonical, so search engines expect the alternates of that same page.
+	 * Its own output is reused with is_paged lowered for the call.
+	 */
+	public static function paged_hreflangs(): void {
+		global $wp_query;
+
+		if ( ! is_paged() || empty( PLL()->filters_links ) ) {
+			return;
+		}
+
+		$wp_query->is_paged = false;
+		PLL()->filters_links->wp_head();
+		$wp_query->is_paged = true;
+	}
+
+	/**
+	 * 0 when the view is not one whose pages can be counted in another language.
+	 */
+	private static function last_page( string $language ): int {
+		global $wp_query;
+
+		if ( $language === Config::current_language() ) {
+			return (int) $wp_query->max_num_pages;
+		}
+
+		$per_page = (int) $wp_query->get( 'posts_per_page' );
+		$object   = PLL()->model->get_language( $language );
+
+		if ( $per_page < 1 || ! $object ) {
+			return 0;
+		}
+
+		if ( is_home() || is_post_type_archive() ) {
+			$post_type = is_home() ? 'post' : get_query_var( 'post_type' );
+			$count     = PLL()->model->count_posts( $object, [ 'post_type' => is_array( $post_type ) ? reset( $post_type ) : $post_type ] );
+		} elseif ( is_category() || is_tag() || is_tax() ) {
+			$translation = (int) pll_get_term( get_queried_object_id(), $language );
+			$term        = $translation ? get_term( $translation ) : null;
+			$count       = $term instanceof \WP_Term ? (int) $term->count : 0;
+		} else {
+			return 0;
+		}
+
+		return (int) ceil( $count / $per_page );
 	}
 
 	/**

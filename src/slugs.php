@@ -23,6 +23,9 @@ final class Slugs {
 	/** @var array{taxonomy:string,language:string}|null Language the term being saved is checked against. */
 	private static $term_scope = null;
 
+	/** @var int Translation that owns the requested URL under its own slug. */
+	private static $redirect_to = 0;
+
 	public static function init(): void {
 		add_filter( 'wp_unique_post_slug', [ self::class, 'allow_post_slug_per_language' ], 10, 6 );
 
@@ -35,6 +38,7 @@ final class Slugs {
 
 		add_action( 'parse_query', [ self::class, 'resolve_post_language' ], 5 );
 		add_action( 'parse_query', [ self::class, 'resolve_term_language' ], 5 );
+		add_action( 'template_redirect', [ self::class, 'redirect_to_own_slug' ], 1 );
 	}
 
 	public static function allow_post_slug_per_language( $slug, $post_id, $post_status, $post_type, $post_parent, $original_slug ) {
@@ -139,7 +143,7 @@ final class Slugs {
 			return;
 		}
 
-		self::point_query_to( $query, $query_var, $target );
+		self::point_query_to_slug( $query, $query_var, $target, urldecode( get_page_uri( $target ) ) !== urldecode( $path ) );
 	}
 
 	private static function resolve_single_language( \WP_Query $query, string $post_type, string $query_var, string $slug, string $language ): void {
@@ -173,7 +177,38 @@ final class Slugs {
 			return;
 		}
 
+		self::point_query_to_slug( $query, $query_var, $target, urldecode( get_post_field( 'post_name', $target ) ) !== urldecode( $slug ) );
+	}
+
+	/**
+	 * A translation reached through another language's slug, like /pt/recursos/
+	 * for the page that is /pt/blog-e-noticias/, would be a duplicate with a
+	 * foreign URL, so it is sent to its own address instead of being served.
+	 */
+	private static function point_query_to_slug( \WP_Query $query, string $query_var, int $target, bool $foreign_slug ): void {
+		if ( $foreign_slug ) {
+			self::$redirect_to = $target;
+
+			return;
+		}
+
 		self::point_query_to( $query, $query_var, $target );
+	}
+
+	public static function redirect_to_own_slug(): void {
+		if ( ! self::$redirect_to ) {
+			return;
+		}
+
+		$url  = get_permalink( self::$redirect_to );
+		$page = (int) get_query_var( 'paged' );
+
+		if ( $page > 1 ) {
+			$url = PLL()->links_model->add_paged_to_link( $url, $page );
+		}
+
+		wp_safe_redirect( $url, 301 );
+		exit;
 	}
 
 	private static function point_query_to( \WP_Query $query, string $query_var, int $target ): void {

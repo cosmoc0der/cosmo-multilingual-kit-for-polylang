@@ -23,6 +23,7 @@ final class Plugin {
 		'strings'      => Strings::class,
 		'users'        => Users::class,
 		'frontend'     => Frontend::class,
+		'sitemaps'     => Sitemaps::class,
 	];
 
 	/** @var array<string,string> Module => why it was switched off. */

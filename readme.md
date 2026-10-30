@@ -3,8 +3,8 @@
 Fills the gaps of Polylang free that otherwise need Polylang PRO or WPML: the
 same slug in every language, translated URL bases, per-language ACF / SCF
 options pages, duplicate-as-translation, copy from another language with
-outdated translation tracking, menu sync, per-language image alt, theme strings
-and author fields.
+outdated translation tracking, menu sync, per-language image alt, theme strings,
+author fields, hreflang on paged archives and one Yoast sitemap per language.
 
 Requires **Polylang 3.7** or later. Without it every template function falls
 back to a single default language.
