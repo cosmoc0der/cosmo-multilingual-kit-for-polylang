@@ -218,17 +218,39 @@ final class Slugs {
 			$query->set( $query_var, '' );
 		}
 
-		if ( get_post_type( $target ) === 'page' ) {
+		if ( self::is_posts_page( $target ) ) {
+			// Core leaves the ID out of the query for the posts page, which lists posts instead.
 			$query->set( 'page_id', $target );
-			$query->is_page = true;
+			$query->is_page       = false;
+			$query->is_singular   = false;
+			$query->is_home       = true;
+			$query->is_posts_page = true;
+		} elseif ( get_post_type( $target ) === 'page' ) {
+			$query->set( 'page_id', $target );
+			$query->is_page     = true;
+			$query->is_singular = true;
 		} else {
 			$query->set( 'p', $target );
-			$query->is_single = true;
+			$query->is_single   = true;
+			$query->is_singular = true;
 		}
 
-		$query->is_singular = true;
-
 		self::set_queried_object( $query, get_post( $target ) );
+	}
+
+	/**
+	 * With the posts page sharing its slug across languages, the request reaches
+	 * the other language's page first, and core would then show the translation
+	 * as an empty page.
+	 */
+	private static function is_posts_page( int $page_id ): bool {
+		$posts_page = (int) get_option( 'page_for_posts' );
+
+		if ( ! $posts_page || get_option( 'show_on_front' ) !== 'page' ) {
+			return false;
+		}
+
+		return (int) pll_get_post( $posts_page, (string) pll_get_post_language( $page_id, 'slug' ) ) === $page_id;
 	}
 
 	/**

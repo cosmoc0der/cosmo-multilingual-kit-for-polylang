@@ -4,7 +4,7 @@ Tags: polylang, multilingual, translation, slugs, acf
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -130,6 +130,9 @@ Language as a directory (with or without `/language/`), as a subdomain, or as a 
 No. WooCommerce keeps product data outside post meta, so a plain copy would give a broken product.
 
 == Changelog ==
+
+= 1.2.2 =
+* A posts page sharing its slug with its translations shows each language's blog instead of an empty page.
 
 = 1.2.1 =
 * Yoast sitemaps stay mixed across languages by default, as in 1.1 and WPML. One sitemap per language is opted into with the new `sitemaps => 'language'` config key.
