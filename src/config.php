@@ -29,6 +29,7 @@ final class Config {
 		'x_default'            => true,
 		'fallback_language'    => 'en',
 		'prefill_translations' => true,
+		'sitemaps'             => 'mixed',
 		'modules'              => [],
 	];
 

@@ -1,11 +1,12 @@
 <?php
 /**
- * One Yoast sitemap per language.
+ * One Yoast sitemap per language, opted into with `'sitemaps' => 'language'`.
  *
  * With languages in directories Polylang hands Yoast every language at once, so
- * post-sitemap.xml and the rest mix seven languages. Here the index lists
- * en-sitemap.xml, ru-sitemap.xml… instead, each built by Yoast's own providers
- * narrowed to one language, so noindex, exclusions and canonicals still apply.
+ * post-sitemap.xml and the rest mix all languages, as WPML's do. Here the index
+ * lists en-sitemap.xml, ru-sitemap.xml… instead, each built by Yoast's own
+ * providers narrowed to one language, so noindex, exclusions and canonicals
+ * still apply.
  *
  * @package Cosmo_Multilingual_Kit_For_Polylang
  */
@@ -26,7 +27,7 @@ final class Sitemaps {
 		global $wpseo_sitemaps;
 
 		// Subdomains and domains already get a sitemap per host from Polylang.
-		if ( ! $wpseo_sitemaps instanceof \WPSEO_Sitemaps || (int) PLL()->options['force_lang'] !== 1 ) {
+		if ( Config::get( 'sitemaps' ) !== 'language' || ! $wpseo_sitemaps instanceof \WPSEO_Sitemaps || (int) PLL()->options['force_lang'] !== 1 ) {
 			return;
 		}
 
