@@ -4,7 +4,7 @@ Tags: polylang, multilingual, translation, slugs, acf
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -130,6 +130,9 @@ Language as a directory (with or without `/language/`), as a subdomain, or as a 
 No. WooCommerce keeps product data outside post meta, so a plain copy would give a broken product.
 
 == Changelog ==
+
+= 1.2.3 =
+* Menu sync links to published translations only. A draft translation used to put a link that 404s for visitors into the menu, since the admin running the sync can read it.
 
 = 1.2.2 =
 * A posts page sharing its slug with its translations shows each language's blog instead of an empty page.

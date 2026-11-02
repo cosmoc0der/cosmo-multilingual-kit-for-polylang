@@ -214,7 +214,7 @@ final class Menus {
 		}
 
 		if ( $item->type === 'post_type' && Config::is_translatable_post_type( $item->object ) ) {
-			$args['menu-item-object-id'] = (int) pll_get_post( (int) $item->object_id, $language ) ?: (int) $item->object_id;
+			$args['menu-item-object-id'] = self::published_translation( (int) $item->object_id, $language ) ?: (int) $item->object_id;
 		} elseif ( $item->type === 'taxonomy' && Config::is_translatable_taxonomy( $item->object ) ) {
 			$args['menu-item-object-id'] = (int) pll_get_term( (int) $item->object_id, $language ) ?: (int) $item->object_id;
 		}
@@ -240,8 +240,18 @@ final class Menus {
 			return $url;
 		}
 
-		$translation = Frontend::readable_translation( $post_id, $language );
+		$translation = self::published_translation( $post_id, $language );
 
 		return $translation ? (string) get_permalink( $translation ) : $url;
+	}
+
+	/**
+	 * Not Frontend::readable_translation(): the admin running the sync can read
+	 * drafts, but visitors following the menu would get a 404.
+	 */
+	private static function published_translation( int $post_id, string $language ): int {
+		$translation = (int) pll_get_post( $post_id, $language );
+
+		return $translation && get_post_status( $translation ) === 'publish' ? $translation : 0;
 	}
 }
