@@ -146,30 +146,41 @@ final class Slugs {
 		self::point_query_to_slug( $query, $query_var, $target, urldecode( get_page_uri( $target ) ) !== urldecode( $path ) );
 	}
 
+	/**
+	 * Core looks a single post up by slug in any status and serves the newest
+	 * match, so a private or draft translation sharing the slug took over: the
+	 * English post 404'd for visitors and redirected admins to the translation.
+	 */
 	private static function resolve_single_language( \WP_Query $query, string $post_type, string $query_var, string $slug, string $language ): void {
-		$found = get_posts( [
+		$found = array_map( 'intval', get_posts( [
 			'post_type'      => $post_type,
-			'post_status'    => 'publish',
+			'post_status'    => self::LOOKUP_STATUSES,
 			'name'           => $slug,
 			'posts_per_page' => 20,
 			'fields'         => 'ids',
 			'lang'           => '',
-		] );
+		] ) );
 
 		$target = 0;
 
-		if ( count( $found ) > 1 ) {
-			foreach ( $found as $post_id ) {
-				if ( pll_get_post_language( (int) $post_id, 'slug' ) === $language ) {
-					$target = (int) $post_id;
-					break;
-				}
+		foreach ( $found as $post_id ) {
+			if ( pll_get_post_language( $post_id, 'slug' ) === $language && Frontend::readable( $post_id ) ) {
+				$target = $post_id;
+				break;
 			}
-		} elseif ( $found ) {
-			$post_language = pll_get_post_language( (int) $found[0], 'slug' );
+		}
+
+		if ( $target && count( $found ) === 1 ) {
+			return;
+		}
+
+		$published = array_values( array_filter( $found, static fn( $post_id ) => get_post_status( $post_id ) === 'publish' ) );
+
+		if ( ! $target && count( $published ) === 1 ) {
+			$post_language = pll_get_post_language( $published[0], 'slug' );
 
 			if ( $post_language && $post_language !== $language ) {
-				$target = (int) pll_get_post( (int) $found[0], $language );
+				$target = (int) pll_get_post( $published[0], $language );
 			}
 		}
 
@@ -187,6 +198,11 @@ final class Slugs {
 	 */
 	private static function point_query_to_slug( \WP_Query $query, string $query_var, int $target, bool $foreign_slug ): void {
 		if ( $foreign_slug ) {
+			// A visitor sent to a draft would land on its ?page_id= link and a 404.
+			if ( ! Frontend::readable( $target ) ) {
+				return;
+			}
+
 			self::$redirect_to = $target;
 
 			return;

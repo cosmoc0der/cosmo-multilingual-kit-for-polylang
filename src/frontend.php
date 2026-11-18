@@ -9,11 +9,17 @@ defined( 'ABSPATH' ) || exit;
 
 final class Frontend {
 
+	/** @var bool The request was turned into a 404 by not_found_untranslated(). */
+	private static $forced_404 = false;
+
 	public static function init(): void {
 		add_filter( 'pll_rel_hreflang_attributes', [ self::class, 'drop_unavailable_hreflangs' ], 5 );
 		add_filter( 'pll_rel_hreflang_attributes', [ self::class, 'add_x_default' ] );
 		add_filter( 'pll_translation_url', [ self::class, 'keep_page_number' ], 10, 2 );
 		add_action( 'wp_head', [ self::class, 'paged_hreflangs' ], 1 );
+		// Before Polylang's canonical redirect at 4.
+		add_action( 'template_redirect', [ self::class, 'not_found_untranslated' ], 3 );
+		add_filter( 'redirect_canonical', [ self::class, 'keep_not_found' ] );
 		add_action( 'template_redirect', [ self::class, 'redirect_untranslated_front' ] );
 		add_filter( 'home_url', [ self::class, 'untranslated_front_home' ], 20, 2 );
 		add_action( 'admin_bar_menu', [ self::class, 'fix_admin_bar_edit_link' ], 90 );
@@ -95,11 +101,69 @@ final class Frontend {
 	public static function readable_translation( int $post_id, string $language ): int {
 		$translation = Config::active() ? (int) pll_get_post( $post_id, $language ) : 0;
 
-		if ( ! $translation ) {
+		return $translation && self::readable( $translation ) ? $translation : 0;
+	}
+
+	public static function readable( int $post_id ): bool {
+		return get_post_status( $post_id ) === 'publish' || current_user_can( 'read_post', $post_id );
+	}
+
+	/**
+	 * Not readable_translation(): an admin can read drafts, but visitors
+	 * following a link to one would get a 404.
+	 */
+	public static function published_translation( int $post_id, string $language ): int {
+		$translation = $post_id && Config::active() ? (int) pll_get_post( $post_id, $language ) : 0;
+
+		return $translation && get_post_status( $translation ) === 'publish' ? $translation : 0;
+	}
+
+	/**
+	 * 0 for external urls and pages of untranslatable types.
+	 */
+	public static function post_from_url( string $url ): int {
+		if ( strpos( $url, home_url() ) !== 0 ) {
 			return 0;
 		}
 
-		return get_post_status( $translation ) === 'publish' || current_user_can( 'read_post', $translation ) ? $translation : 0;
+		$post_id = url_to_postid( $url ) ?: self::page_from_url( $url );
+
+		return $post_id && Config::is_translatable_post_type( get_post_type( $post_id ) ) ? $post_id : 0;
+	}
+
+	/**
+	 * url_to_postid() misses the posts page, and private pages unless the current
+	 * user can read them, so a menu sync from WP-CLI would see other links than one
+	 * from the admin.
+	 */
+	private static function page_from_url( string $url ): int {
+		$path = (string) wp_parse_url( PLL()->links_model->remove_language_from_link( $url ), PHP_URL_PATH );
+		$home = (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH );
+		$path = trim( (string) substr( $path, strlen( $home ) ), '/' );
+		$page = $path !== '' ? get_page_by_path( $path ) : null;
+
+		return $page ? (int) $page->ID : 0;
+	}
+
+	/**
+	 * A link to a page of the site goes to that page's published translation,
+	 * empty when it has none. Other urls are returned as they are.
+	 */
+	public static function translate_url( string $url, string $language ): string {
+		if ( ( PLL()->links_model->get_language_from_url( $url ) ?: Config::default_language() ) === $language ) {
+			return $url;
+		}
+
+		$post_id = self::post_from_url( $url );
+
+		if ( ! $post_id ) {
+			return $url;
+		}
+
+		// Shared slugs: the url of one language may resolve to the post of another.
+		$translation = self::published_translation( $post_id, $language );
+
+		return $translation ? (string) get_permalink( $translation ) : '';
 	}
 
 	public static function add_x_default( $hreflangs ) {
@@ -212,18 +276,74 @@ final class Frontend {
 	 * language's home, which is an empty blog until that language has posts.
 	 */
 	public static function redirect_untranslated_front(): void {
-		$language = Config::current_language();
-
-		// Paths only: with subdomains or domains home_url() keeps the main host.
-		if (
-			! is_home() || is_paged() || ! self::front_untranslated( $language )
-			|| self::url_path( home_url( $GLOBALS['wp']->request ) ) !== self::url_path( pll_home_url( $language ) )
-		) {
+		if ( ! self::is_untranslated_front( Config::current_language() ) ) {
 			return;
 		}
 
 		wp_safe_redirect( pll_home_url( Config::default_language() ) );
 		exit;
+	}
+
+	/**
+	 * Polylang sends a URL in a language the content lacks to the content's own
+	 * address, and the front page above goes to the default language home. With
+	 * `untranslated => '404'` both are not found instead.
+	 */
+	public static function not_found_untranslated(): void {
+		if ( Config::get( 'untranslated' ) !== '404' || ! Config::language_in_url() || is_404() ) {
+			return;
+		}
+
+		$language = Config::current_language();
+
+		if ( ! self::is_untranslated_front( $language ) && ! self::queried_untranslated( $language ) ) {
+			return;
+		}
+
+		$GLOBALS['wp_query']->set_404();
+		status_header( 404 );
+		nocache_headers();
+
+		self::$forced_404 = true;
+	}
+
+	/**
+	 * On a 404 WordPress guesses the post by its slug and redirects to it, which
+	 * lands in another language, or on a draft's ?page_id= link.
+	 *
+	 * @param string|false $redirect_url
+	 * @return string|false
+	 */
+	public static function keep_not_found( $redirect_url ) {
+		if ( Config::get( 'untranslated' ) !== '404' || ! is_404() ) {
+			return $redirect_url;
+		}
+
+		return self::$forced_404 || Config::current_language() !== Config::default_language() ? false : $redirect_url;
+	}
+
+	private static function is_untranslated_front( string $language ): bool {
+		// Paths only: with subdomains or domains home_url() keeps the main host.
+		return is_home() && ! is_paged() && self::front_untranslated( $language )
+			&& self::url_path( home_url( $GLOBALS['wp']->request ) ) === self::url_path( pll_home_url( $language ) );
+	}
+
+	private static function queried_untranslated( string $language ): bool {
+		$object = get_queried_object();
+
+		if ( $object instanceof \WP_Post ) {
+			return Config::is_translatable_post_type( $object->post_type )
+				&& Config::post_language( $object->ID ) !== $language
+				&& ! self::readable_translation( $object->ID, $language );
+		}
+
+		if ( $object instanceof \WP_Term ) {
+			return Config::is_translatable_taxonomy( $object->taxonomy )
+				&& Config::term_language( $object->term_id ) !== $language
+				&& ! pll_get_term( $object->term_id, $language );
+		}
+
+		return false;
 	}
 
 	/** Logo and other home links would otherwise bounce off the redirect above. */

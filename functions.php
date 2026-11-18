@@ -124,6 +124,16 @@ if ( ! function_exists( 'cosmo_mlk_readable_translation' ) ) {
 	}
 }
 
+if ( ! function_exists( 'cosmo_mlk_translate_url' ) ) {
+	/**
+	 * A link to a page of the site in another language: its published translation,
+	 * or an empty string when it has none. Other urls are returned as they are.
+	 */
+	function cosmo_mlk_translate_url( string $url, string $language = '' ): string {
+		return Config::active() ? Frontend::translate_url( $url, $language ?: Config::current_language() ) : $url;
+	}
+}
+
 if ( ! function_exists( 'cosmo_mlk_term_by_slug' ) ) {
 	function cosmo_mlk_term_by_slug( string $slug, string $taxonomy, string $language = '' ): ?WP_Term {
 		return Slugs::term_by_slug( $slug, $taxonomy, $language );

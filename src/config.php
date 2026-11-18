@@ -26,6 +26,8 @@ final class Config {
 		'user_fields'          => [],
 		'pending_meta'         => '',
 		'hidden_languages'     => [],
+		'untranslated'         => 'redirect',
+		'menus_untranslated'   => 'keep',
 		'x_default'            => true,
 		'fallback_language'    => 'en',
 		'prefill_translations' => true,

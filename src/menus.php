@@ -19,6 +19,9 @@ final class Menus {
 	/** On a translated item: the item it was copied from. */
 	private const ITEM_META = '_cosmo_mlk_source_item';
 
+	/** On a translated custom link: the page of the site it points to. */
+	private const POST_META = '_cosmo_mlk_source_post';
+
 	/** On a translated menu: the menu it was copied from, and its language. */
 	private const MENU_META     = '_cosmo_mlk_source_menu';
 	private const LANGUAGE_META = '_cosmo_mlk_language';
@@ -33,6 +36,7 @@ final class Menus {
 	public static function init(): void {
 		add_action( 'admin_notices', [ self::class, 'render_box' ] );
 		add_action( 'admin_post_' . self::ACTION, [ self::class, 'handle_request' ] );
+		add_filter( 'wp_get_nav_menu_items', [ self::class, 'drop_untranslated_items' ], 10, 2 );
 	}
 
 	/**
@@ -42,6 +46,9 @@ final class Menus {
 		if ( ! Config::active() ) {
 			return 0;
 		}
+
+		// The sync must see every item, also when run from WP-CLI where is_admin() is false.
+		remove_filter( 'wp_get_nav_menu_items', [ self::class, 'drop_untranslated_items' ] );
 
 		$theme     = get_stylesheet();
 		$default   = Config::default_language();
@@ -214,7 +221,7 @@ final class Menus {
 		}
 
 		if ( $item->type === 'post_type' && Config::is_translatable_post_type( $item->object ) ) {
-			$args['menu-item-object-id'] = self::published_translation( (int) $item->object_id, $language ) ?: (int) $item->object_id;
+			$args['menu-item-object-id'] = Frontend::published_translation( (int) $item->object_id, $language ) ?: (int) $item->object_id;
 		} elseif ( $item->type === 'taxonomy' && Config::is_translatable_taxonomy( $item->object ) ) {
 			$args['menu-item-object-id'] = (int) pll_get_term( (int) $item->object_id, $language ) ?: (int) $item->object_id;
 		}
@@ -227,31 +234,115 @@ final class Menus {
 
 		update_post_meta( $id, self::ITEM_META, $item->ID );
 
+		$source_post = $item->type === 'custom' ? Frontend::post_from_url( (string) $item->url ) : 0;
+
+		if ( $source_post ) {
+			update_post_meta( $id, self::POST_META, $source_post );
+		} else {
+			delete_post_meta( $id, self::POST_META );
+		}
+
+		self::add_missing_meta( $item->ID, $id );
+
 		return (int) $id;
 	}
 
 	/**
-	 * A custom link to a page of the site goes to that page's translation.
+	 * Fields themes and plugins keep on items (columns, icons…). Values already
+	 * set in the translated item are kept, as its label is.
 	 */
-	private static function translate_url( string $url, string $language ): string {
-		$post_id = strpos( $url, home_url() ) === 0 ? url_to_postid( $url ) : 0;
+	private static function add_missing_meta( int $from, int $to ): void {
+		foreach ( (array) get_post_meta( $from ) as $key => $values ) {
+			if ( str_starts_with( $key, '_menu_item_' ) || str_starts_with( $key, '_cosmo_mlk_' ) || metadata_exists( 'post', $to, $key ) ) {
+				continue;
+			}
 
-		if ( ! $post_id || ! Config::is_translatable_post_type( get_post_type( $post_id ) ) ) {
-			return $url;
+			foreach ( (array) $values as $value ) {
+				add_post_meta( $to, $key, wp_slash( maybe_unserialize( $value ) ) );
+			}
 		}
+	}
 
-		$translation = self::published_translation( $post_id, $language );
-
-		return $translation ? (string) get_permalink( $translation ) : $url;
+	private static function translate_url( string $url, string $language ): string {
+		return Frontend::translate_url( $url, $language ) ?: $url;
 	}
 
 	/**
-	 * Not Frontend::readable_translation(): the admin running the sync can read
-	 * drafts, but visitors following the menu would get a 404.
+	 * With `menus_untranslated => 'hide'` a translated menu leaves out items whose
+	 * page has no published translation, with their sub-items, and a heading left
+	 * without links. Checked on every view, so a translation published later shows
+	 * up without another sync.
+	 *
+	 * @param \WP_Post[] $items
+	 * @param \WP_Term   $menu
+	 * @return \WP_Post[]
 	 */
-	private static function published_translation( int $post_id, string $language ): int {
-		$translation = (int) pll_get_post( $post_id, $language );
+	public static function drop_untranslated_items( $items, $menu ) {
+		if ( is_admin() || Config::get( 'menus_untranslated' ) !== 'hide' || ! is_array( $items ) || ! $menu instanceof \WP_Term ) {
+			return $items;
+		}
 
-		return $translation && get_post_status( $translation ) === 'publish' ? $translation : 0;
+		$language = (string) get_term_meta( $menu->term_id, self::LANGUAGE_META, true );
+
+		if ( $language === '' ) {
+			return $items;
+		}
+
+		$parents = [];
+		$dropped = [];
+
+		foreach ( $items as $item ) {
+			$parents[ $item->ID ] = (int) $item->menu_item_parent;
+			$url                  = self::item_url( $item, $language );
+
+			if ( $url === '' ) {
+				$dropped[ $item->ID ] = true;
+			} elseif ( $url !== null ) {
+				$item->url = $url;
+			}
+		}
+
+		$hidden = static function ( int $id ) use ( &$hidden, $parents, $dropped ): bool {
+			return isset( $dropped[ $id ] ) || ( ! empty( $parents[ $id ] ) && $hidden( $parents[ $id ] ) );
+		};
+
+		$kept = array_filter( $items, static function ( $item ) use ( $hidden ) {
+			return ! $hidden( (int) $item->ID );
+		} );
+
+		$had_children = array_flip( $parents );
+		$has_children = array_flip( wp_list_pluck( $kept, 'menu_item_parent' ) );
+
+		return array_values( array_filter( $kept, static function ( $item ) use ( $had_children, $has_children ) {
+			$link = trim( (string) $item->url );
+
+			return ! isset( $had_children[ $item->ID ] ) || isset( $has_children[ $item->ID ] ) || ( $link !== '' && $link !== '#' );
+		} ) );
+	}
+
+	/**
+	 * @return string|null Translation url, '' when there is none, null for items that are not a translatable page.
+	 */
+	private static function item_url( \WP_Post $item, string $language ): ?string {
+		if ( $item->type === 'taxonomy' && Config::is_translatable_taxonomy( $item->object ) ) {
+			$term = (int) pll_get_term( (int) $item->object_id, $language );
+			$link = $term ? get_term_link( $term ) : '';
+
+			return is_string( $link ) ? $link : '';
+		}
+
+		if ( $item->type === 'post_type' && Config::is_translatable_post_type( $item->object ) ) {
+			$post_id = (int) $item->object_id;
+		} else {
+			$post_id = (int) get_post_meta( $item->ID, self::POST_META, true );
+		}
+
+		if ( ! $post_id ) {
+			return null;
+		}
+
+		$translation = Frontend::published_translation( $post_id, $language );
+
+		return $translation ? (string) get_permalink( $translation ) : '';
 	}
 }

@@ -4,7 +4,7 @@ Tags: polylang, multilingual, translation, slugs, acf
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.2.3
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -73,6 +73,8 @@ add_filter( 'cosmo/multilingual_kit/config', function ( $config ) {
 * `user_fields` — profile fields translated per language.
 * `pending_meta` — meta key set on duplicated copies; while set, the language switcher hides that language.
 * `hidden_languages` — languages left out of the switcher and hreflang, e.g. while their content is being prepared.
+* `untranslated` — a URL in a language the content has no published translation in: `redirect` sends it to the content's own address, as Polylang does, and an untranslated front page to the default language home (default); `404` answers not found.
+* `menus_untranslated` — items of a synced menu whose page has no published translation: `keep` links them to the original (default), `hide` leaves them out with their sub-items. Checked on every view, so a later translation needs no new sync.
 * `x_default` — add hreflang `x-default` (default `true`).
 * `prefill_translations` — pre-fill translations created with Polylang's "+" from the source post (default `true`, off with Polylang PRO, which does it itself).
 * `sitemaps` — Yoast sitemaps with languages in directories: `mixed` keeps Yoast's per-type maps with every language in them (default), `language` gives one map per language. Subdomains and domains get a sitemap per host either way.
@@ -86,6 +88,7 @@ add_filter( 'cosmo/multilingual_kit/config', function ( $config ) {
 * `cosmo_mlk_t( $key, $fallback )` — translated template string
 * `cosmo_mlk_user_field( $user_id, $key, $language )`, `cosmo_mlk_image_alt( $attachment_id, $language )`
 * `cosmo_mlk_translated_post( $post_id, $language )`, `cosmo_mlk_readable_translation( $post_id, $language )`, `cosmo_mlk_pending_translations()`
+* `cosmo_mlk_translate_url( $url, $language )` — a link to a page of the site in another language: its published translation, empty when there is none, other urls as they are
 * `cosmo_mlk_term_by_slug( $slug, $taxonomy, $language )`, `cosmo_mlk_insert_term( $name, $taxonomy, $language, $args )`
 * `cosmo_mlk_duplicate_post( $post_id, $language, $args )`, `cosmo_mlk_link_translations( $map )`, `cosmo_mlk_link_term_translations( $map )`
 * `cosmo_mlk_copy_post( $from, $to )`, `cosmo_mlk_translation_outdated( $post_id )`
@@ -130,6 +133,13 @@ Language as a directory (with or without `/language/`), as a subdomain, or as a 
 No. WooCommerce keeps product data outside post meta, so a plain copy would give a broken product.
 
 == Changelog ==
+
+= 1.3.0 =
+* New `untranslated` config key: `404` answers not found for a URL in a language the content is not translated into, instead of redirecting to another language.
+* New `menus_untranslated` config key: `hide` leaves untranslated pages out of translated menus.
+* Menu sync copies item fields (ACF and other meta) to translated menus, keeping values already set there.
+* New `cosmo_mlk_translate_url()` template function.
+* A private or draft translation sharing a post's slug no longer takes over its URL. Visitors got a 404 there and admins were redirected to the translation.
 
 = 1.2.3 =
 * Menu sync links to published translations only. A draft translation used to put a link that 404s for visitors into the menu, since the admin running the sync can read it.
