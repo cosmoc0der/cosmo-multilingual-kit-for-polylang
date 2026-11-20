@@ -270,21 +270,22 @@ final class Menus {
 	/**
 	 * With `menus_untranslated => 'hide'` a translated menu leaves out items whose
 	 * page has no published translation, with their sub-items, and a heading left
-	 * without links. Checked on every view, so a translation published later shows
-	 * up without another sync.
+	 * without links; `unlink` keeps such items with an empty url. Checked on every
+	 * view, so a translation published later shows up without another sync.
 	 *
 	 * @param \WP_Post[] $items
 	 * @param \WP_Term   $menu
 	 * @return \WP_Post[]
 	 */
 	public static function drop_untranslated_items( $items, $menu ) {
-		if ( is_admin() || Config::get( 'menus_untranslated' ) !== 'hide' || ! is_array( $items ) || ! $menu instanceof \WP_Term ) {
+		if ( is_admin() || ! is_array( $items ) || ! $menu instanceof \WP_Term ) {
 			return $items;
 		}
 
 		$language = (string) get_term_meta( $menu->term_id, self::LANGUAGE_META, true );
+		$mode     = $language === '' ? 'keep' : self::untranslated_mode( $menu->term_id, $language );
 
-		if ( $language === '' ) {
+		if ( $mode !== 'hide' && $mode !== 'unlink' ) {
 			return $items;
 		}
 
@@ -295,7 +296,7 @@ final class Menus {
 			$parents[ $item->ID ] = (int) $item->menu_item_parent;
 			$url                  = self::item_url( $item, $language );
 
-			if ( $url === '' ) {
+			if ( $url === '' && $mode === 'hide' ) {
 				$dropped[ $item->ID ] = true;
 			} elseif ( $url !== null ) {
 				$item->url = $url;
@@ -318,6 +319,27 @@ final class Menus {
 
 			return ! isset( $had_children[ $item->ID ] ) || isset( $has_children[ $item->ID ] ) || ( $link !== '' && $link !== '#' );
 		} ) );
+	}
+
+	/**
+	 * `menus_untranslated` is a mode or a map of locations to modes, `*` for the rest.
+	 */
+	private static function untranslated_mode( int $menu_id, string $language ): string {
+		$config = Config::get( 'menus_untranslated' );
+
+		if ( ! is_array( $config ) ) {
+			return (string) $config;
+		}
+
+		$nav_menus = (array) PLL()->options->get( 'nav_menus' );
+
+		foreach ( (array) ( $nav_menus[ get_stylesheet() ] ?? [] ) as $location => $menus ) {
+			if ( isset( $config[ $location ] ) && (int) ( $menus[ $language ] ?? 0 ) === $menu_id ) {
+				return (string) $config[ $location ];
+			}
+		}
+
+		return (string) ( $config['*'] ?? 'keep' );
 	}
 
 	/**

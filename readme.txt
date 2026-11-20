@@ -4,7 +4,7 @@ Tags: polylang, multilingual, translation, slugs, acf
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -74,7 +74,7 @@ add_filter( 'cosmo/multilingual_kit/config', function ( $config ) {
 * `pending_meta` — meta key set on duplicated copies; while set, the language switcher hides that language.
 * `hidden_languages` — languages left out of the switcher and hreflang, e.g. while their content is being prepared.
 * `untranslated` — a URL in a language the content has no published translation in: `redirect` sends it to the content's own address, as Polylang does, and an untranslated front page to the default language home (default); `404` answers not found.
-* `menus_untranslated` — items of a synced menu whose page has no published translation: `keep` links them to the original (default), `hide` leaves them out with their sub-items. Checked on every view, so a later translation needs no new sync.
+* `menus_untranslated` — items of a synced menu whose page has no published translation: `keep` links them to the original (default), `hide` leaves them out with their sub-items, `unlink` keeps them with an empty url for the theme to print as plain text. A map of menu locations to modes sets it per location, `*` for the rest: `[ 'footer-docs' => 'unlink', '*' => 'hide' ]`. Checked on every view, so a later translation needs no new sync.
 * `x_default` — add hreflang `x-default` (default `true`).
 * `prefill_translations` — pre-fill translations created with Polylang's "+" from the source post (default `true`, off with Polylang PRO, which does it itself).
 * `sitemaps` — Yoast sitemaps with languages in directories: `mixed` keeps Yoast's per-type maps with every language in them (default), `language` gives one map per language. Subdomains and domains get a sitemap per host either way.
@@ -133,6 +133,9 @@ Language as a directory (with or without `/language/`), as a subdomain, or as a 
 No. WooCommerce keeps product data outside post meta, so a plain copy would give a broken product.
 
 == Changelog ==
+
+= 1.4.0 =
+* `menus_untranslated` takes `unlink`, which keeps untranslated items without a link, and a map of menu locations to modes.
 
 = 1.3.0 =
 * New `untranslated` config key: `404` answers not found for a URL in a language the content is not translated into, instead of redirecting to another language.
