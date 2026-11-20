@@ -4,7 +4,7 @@ Tags: polylang, multilingual, translation, slugs, acf
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -133,6 +133,10 @@ Language as a directory (with or without `/language/`), as a subdomain, or as a 
 No. WooCommerce keeps product data outside post meta, so a plain copy would give a broken product.
 
 == Changelog ==
+
+= 1.4.1 =
+* A language home follows the permalink structure: no trailing slash when permalinks have none (/ru instead of /ru/). Re-save Languages → Settings or any language to refresh Polylang's cached URLs.
+* `cosmo_mlk_home_url( '/' )` returns the language home as is.
 
 = 1.4.0 =
 * `menus_untranslated` takes `unlink`, which keeps untranslated items without a link, and a map of menu locations to modes.

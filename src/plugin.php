@@ -32,6 +32,9 @@ final class Plugin {
 	public static function boot(): void {
 		Config::init();
 
+		// Polylang builds and caches its languages before modules start.
+		add_filter( 'pll_additional_language_data', [ Frontend::class, 'home_without_trailing_slash' ], 20 );
+
 		// The theme hooks its config while functions.php loads, so modules start right after that.
 		add_action( 'after_setup_theme', [ self::class, 'init_modules' ], 20 );
 		add_action( 'admin_notices', [ self::class, 'render_missing_polylang_notice' ] );

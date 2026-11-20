@@ -59,9 +59,10 @@ if ( ! function_exists( 'cosmo_mlk_home_url' ) ) {
 			return home_url( $path );
 		}
 
-		$url = pll_home_url( $language ?: Config::current_language() );
+		$url  = pll_home_url( $language ?: Config::current_language() );
+		$path = ltrim( $path, '/' );
 
-		return $path ? trailingslashit( $url ) . ltrim( $path, '/' ) : $url;
+		return $path !== '' ? trailingslashit( $url ) . $path : $url;
 	}
 }
 

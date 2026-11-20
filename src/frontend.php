@@ -346,6 +346,25 @@ final class Frontend {
 		return false;
 	}
 
+	/**
+	 * Polylang ends a language home with a slash whatever the permalinks say,
+	 * which gives /ru/ next to /ru/blog.
+	 *
+	 * @param array $data Additional language data.
+	 */
+	public static function home_without_trailing_slash( $data ) {
+		$url       = (string) ( $data['home_url'] ?? '' );
+		$structure = (string) get_option( 'permalink_structure' );
+
+		if ( $structure === '' || str_ends_with( $structure, '/' ) || in_array( wp_parse_url( $url, PHP_URL_PATH ), [ null, '', '/' ], true ) ) {
+			return $data;
+		}
+
+		$data['home_url'] = untrailingslashit( $url );
+
+		return $data;
+	}
+
 	/** Logo and other home links would otherwise bounce off the redirect above. */
 	public static function untranslated_front_home( $url, $path ) {
 		if ( is_admin() || ( $path !== '' && $path !== '/' ) || ! did_action( 'pll_language_defined' ) ) {
